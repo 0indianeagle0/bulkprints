@@ -43,9 +43,72 @@
         }
 
         .header {
-            padding: 40px 20px;
+            padding: 40px 20px 30px 20px;
             text-align: center;
             border-bottom: 1px solid var(--border-color);
+            position: relative;
+            min-height: 200px;
+        }
+
+        .logo-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 20px;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid var(--primary-color);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .circular-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: rotate 10s linear infinite;
+            z-index: 1;
+        }
+
+        .circular-text span {
+            position: absolute;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transform-origin: 0 75px;
+            text-shadow: 0 0 5px rgba(0, 175, 255, 0.5);
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes typo-effect {
+            0% { color: var(--primary-color); }
+            25% { color: var(--success-color); }
+            50% { color: white; }
+            75% { color: var(--success-color); }
+            100% { color: var(--primary-color); }
         }
 
         .header h1 {
@@ -60,6 +123,7 @@
             color: var(--text-secondary);
         }
 
+        /* Rest of your CSS remains the same */
         .main-content {
             padding: 30px;
         }
@@ -72,14 +136,14 @@
             text-align: center;
             border: 1px solid var(--border-color);
         }
-        
+
         .upload-buttons {
             display: flex;
             justify-content: center;
             gap: 20px;
             margin-bottom: 20px;
         }
-        
+
         .upload-btn {
             background-color: var(--surface-color);
             color: var(--text-primary);
@@ -97,7 +161,7 @@
             color: white;
             border-color: var(--primary-color);
         }
-        
+
         .upload-note {
             font-size: 0.85rem;
             color: var(--text-secondary);
@@ -122,13 +186,13 @@
             font-weight: 600;
             transition: var(--transition);
         }
-        
+
         .print-btn { background-color: var(--success-color); }
         .reset-btn { background-color: var(--danger-color); }
         .merge-btn { background-color: var(--primary-color); }
 
         .action-btn:hover { transform: translateY(-2px); }
-        
+
         .action-btn:disabled {
             background-color: var(--disabled-color);
             cursor: not-allowed;
@@ -140,7 +204,7 @@
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 20px;
         }
-        
+
         .file-type-stats {
             display: flex;
             justify-content: center;
@@ -148,7 +212,7 @@
             margin: 20px 0;
             flex-wrap: wrap;
         }
-        
+
         .file-stat {
             background: var(--surface-color);
             padding: 10px 20px;
@@ -160,7 +224,7 @@
             gap: 8px;
             border: 1px solid var(--border-color);
         }
-        
+
         .file-card {
             background: var(--surface-light);
             border-radius: var(--border-radius);
@@ -170,7 +234,7 @@
             transition: var(--transition);
             border: 1px solid var(--border-color);
         }
-        
+
         .file-card:hover {
             transform: translateY(-5px);
             border-color: var(--primary-color);
@@ -184,7 +248,7 @@
             justify-content: center;
             position: relative;
         }
-        
+
         .preview-container img {
             width: 100%;
             height: 100%;
@@ -196,7 +260,7 @@
             height: 60px;
             color: var(--primary-color);
         }
-        
+
         .file-checkbox {
             position: absolute;
             top: 10px;
@@ -204,7 +268,7 @@
             transform: scale(1.5);
             accent-color: var(--primary-color);
         }
-        
+
         .unsupported-text {
             position: absolute;
             bottom: 10px;
@@ -232,13 +296,13 @@
             font-size: 0.85rem;
             color: var(--text-secondary);
         }
-        
+
         .card-actions {
             display: flex;
             gap: 5px;
             margin-top: 15px;
         }
-        
+
         .card-action-btn {
             flex-grow: 1;
             color: white;
@@ -249,10 +313,10 @@
             transition: var(--transition);
             border-radius: var(--border-radius);
         }
-        
+
         .remove-file-btn { background: var(--danger-color); }
         .print-pdf-btn { background: var(--primary-color); }
-        
+
         .status-message {
             padding: 15px 20px;
             border-radius: var(--border-radius);
@@ -273,7 +337,7 @@
             color: var(--danger-color);
             border-color: var(--danger-color);
         }
-        
+
         .progress-container {
             margin: 20px 0;
         }
@@ -300,32 +364,60 @@
             font-size: 0.9rem;
             color: var(--text-secondary);
         }
-
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header">
+            <div class="logo-container">
+                <div class="circular-text">
+                    <!-- Characters are placed individually to create the circular effect -->
+                    <span style="transform: rotate(0deg); animation: typo-effect 2s infinite;">I</span>
+                    <span style="transform: rotate(18deg); animation: typo-effect 2s infinite 0.1s;">N</span>
+                    <span style="transform: rotate(36deg); animation: typo-effect 2s infinite 0.2s;">D</span>
+                    <span style="transform: rotate(54deg); animation: typo-effect 2s infinite 0.3s;">I</span>
+                    <span style="transform: rotate(72deg); animation: typo-effect 2s infinite 0.4s;">A</span>
+                    <span style="transform: rotate(90deg); animation: typo-effect 2s infinite 0.5s;">N</span>
+                    <span style="transform: rotate(108deg); animation: typo-effect 2s infinite 0.6s;">&nbsp;</span>
+                    <span style="transform: rotate(126deg); animation: typo-effect 2s infinite 0.7s;">E</span>
+                    <span style="transform: rotate(144deg); animation: typo-effect 2s infinite 0.8s;">A</span>
+                    <span style="transform: rotate(162deg); animation: typo-effect 2s infinite 0.9s;">G</span>
+                    <span style="transform: rotate(180deg); animation: typo-effect 2s infinite 1s;">L</span>
+                    <span style="transform: rotate(198deg); animation: typo-effect 2s infinite 1.1s;">E</span>
+                    <span style="transform: rotate(216deg); animation: typo-effect 2s infinite 1.2s;">&nbsp;</span>
+                    <span style="transform: rotate(234deg); animation: typo-effect 2s infinite 1.3s;">I</span>
+                    <span style="transform: rotate(252deg); animation: typo-effect 2s infinite 1.4s;">N</span>
+                    <span style="transform: rotate(270deg); animation: typo-effect 2s infinite 1.5s;">D</span>
+                    <span style="transform: rotate(288deg); animation: typo-effect 2s infinite 1.6s;">I</span>
+                    <span style="transform: rotate(306deg); animation: typo-effect 2s infinite 1.7s;">A</span>
+                    <span style="transform: rotate(324deg); animation: typo-effect 2s infinite 1.8s;">N</span>
+                    <span style="transform: rotate(342deg); animation: typo-effect 2s infinite 1.9s;">&nbsp;</span>
+                </div>
+                <div class="logo">
+                    <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjCYbZamsmnM7j0YKcm4L2KdMX6-sROVmqdr6IdsUr-foXwXV6711DgHHve50G1SMCsb2vzPi1GcuMdrBJ6RMp2LLb0VTbXXKWMiPPICCrOkJR3x-IArrErgTjj7BYhMUzcm4b_breZUxlUE_W_v6-DnFSOBLAaPwNdMBBL61bDk25KGTWIKZkUNK-o2Fk/s320/New%20Project.jpg" alt="Logo">
+                </div>
+            </div>
             <h1>Bulk File Printer & PDF Merger</h1>
             <p>Select multiple files to print or merge them into a single document.</p>
         </div>
 
         <div class="main-content">
+            <!-- Rest of your HTML content remains the same -->
             <div class="controls-section">
                 <input type="file" id="fileInput" multiple accept="image/*,application/pdf,.doc,.docx" style="display: none;">
                 <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
-                
+
                 <div class="upload-buttons">
                     <label for="fileInput" class="upload-btn">Select Files</label>
                     <label for="folderInput" class="upload-btn">Select Folder</label>
                 </div>
                 <p class="upload-note">Note: Images can be bulk printed. PDFs can be merged into a single document.</p>
             </div>
-            
+
             <div id="fileStats" class="file-type-stats"></div>
             <div id="statusMessage" class="status-message" style="display: none;"></div>
-            
+
             <div id="progressContainer" class="progress-container" style="display: none;">
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill"></div>
@@ -334,7 +426,7 @@
             </div>
 
             <div class="preview-area" id="previewArea"></div>
-            
+
             <div class="action-buttons">
                 <button class="action-btn print-btn" id="printBtn" disabled>Print All Images</button>
                 <button class="action-btn merge-btn" id="mergePdfBtn" disabled>Merge & Print PDFs</button>
@@ -346,6 +438,7 @@
     <!-- PDF-LIB Script -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script>
+        // Your JavaScript code remains exactly the same
         const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
         const previewArea = document.getElementById('previewArea');
@@ -365,7 +458,7 @@
         printBtn.addEventListener('click', handleImagePrint);
         mergePdfBtn.addEventListener('click', mergePdfFiles);
         resetBtn.addEventListener('click', resetAll);
-        
+
         function handleFiles(files) {
             for (const file of files) {
                 if (!selectedFiles.has(file.name)) {
@@ -412,7 +505,7 @@
                 <div class="file-name">${file.name}</div>
                 <div class="file-details">${formatBytes(file.size)}</div>
             `;
-            
+
             actionsDiv.innerHTML += `<button class="card-action-btn remove-file-btn" onclick="removeFile('${file.name}')">Remove</button>`;
             infoDiv.appendChild(actionsDiv);
 
@@ -420,7 +513,7 @@
             card.appendChild(infoDiv);
             previewArea.appendChild(card);
         }
-        
+
         function updateUI() {
             updateStats();
             updateButtonsState();
@@ -434,13 +527,13 @@
                 if (type === 'pdf') stats.pdfs++;
                 if (type === 'doc') stats.docs++;
             });
-            
+
             fileStats.innerHTML = '';
             if (stats.images > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.images} Image(s)</span></div>`;
             if (stats.pdfs > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.pdfs} PDF(s)</span></div>`;
             if (stats.docs > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.docs} DOC(s)</span></div>`;
         }
-        
+
         function handleImagePrint() {
             const imageFiles = Array.from(selectedFiles.values()).filter(file => getFileType(file) === 'image');
             if (imageFiles.length === 0) return;
@@ -468,7 +561,7 @@
                 frameDoc.body.appendChild(img);
             });
         }
-        
+
         function handlePdfPrint(filename) {
             const file = selectedFiles.get(filename);
             if (!file) return;
@@ -487,7 +580,7 @@
                 setTimeout(() => document.body.removeChild(pdfFrame), 5000);
             };
         }
-        
+
         async function mergePdfFiles() {
             const pdfsToMerge = Array.from(document.querySelectorAll('.pdf-checkbox:checked'))
                 .map(cb => selectedFiles.get(cb.closest('.file-card').dataset.filename))
@@ -501,7 +594,7 @@
             showProgress(0, 'Merging PDFs...');
             const { PDFDocument } = PDFLib;
             const mergedPdf = await PDFDocument.create();
-            
+
             for (let i = 0; i < pdfsToMerge.length; i++) {
                 const pdfBytes = await pdfsToMerge[i].arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -514,7 +607,7 @@
             const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
             const printWindow = window.open(url, '_blank');
-            
+
             if (printWindow) {
                 showStatus('success', 'PDFs merged! Opening print dialog...');
             } else {
@@ -541,17 +634,17 @@
             hideStatus();
             hideProgress();
         }
-        
+
         function updateButtonsState() {
             const hasFiles = selectedFiles.size > 0;
             const hasImages = Array.from(selectedFiles.values()).some(file => getFileType(file) === 'image');
             const hasPdfs = document.querySelectorAll('.pdf-checkbox:checked').length > 0;
-            
+
             printBtn.disabled = !hasImages;
             mergePdfBtn.disabled = !hasPdfs;
             resetBtn.disabled = !hasFiles;
         }
-        
+
         function showStatus(type, message) {
             statusMessage.className = `status-message status-${type}`;
             statusMessage.textContent = message;
@@ -560,13 +653,13 @@
         }
 
         function hideStatus() { statusMessage.style.display = 'none'; }
-        
+
         function showProgress(percentage, message = '') {
             progressContainer.style.display = 'block';
             progressFill.style.width = `${percentage}%`;
             progressText.textContent = message || `Processing... ${Math.round(percentage)}%`;
         }
-        
+
         function hideProgress() { progressContainer.style.display = 'none'; }
 
         function getFileType(file) {

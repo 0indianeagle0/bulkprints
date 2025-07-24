@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+            <style></style>
+        </head>
+        <body>
+            
+
+
+    <meta charset="UTF-8">
+    <title>PDF Page Organizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { display: flex; max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px #0001;}
+        h1, h3 { color: #333; }
+        .left-panel { width: 250px; padding: 10px; border-right: 1px solid #ddd; height: 700px; overflow-y: auto; }
+        .file-input { margin: 20px 0; text-align: center; }
+        .file-list { list-style: none; padding: 0; margin: 0; }
+        .file-list-item { padding: 8px 10px; margin-bottom: 5px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .file-list-item:hover { opacity: 0.9; }
+        .page-count { background: #0001; padding: 2px 6px; border-radius: 8px; font-size: 12px;}
+        .right-panel { flex: 1; padding: 10px; }
+        .thumbnail-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; min-height: 200px; padding: 15px; background: #eee; border-radius: 5px;}
+        .thumbnail { position: relative; width: 150px; height: 200px; border: 2px solid transparent; background: white; overflow: hidden; cursor: move; box-shadow: 0 2px 5px #0001; transition: transform 0.2s, border-color 0.3s;}
+        .thumbnail:hover { transform: scale(1.05);}
+        .thumbnail img { width: 100%; height: 100%; object-fit: contain;}
+        .thumbnail.highlighted { border-color: #4CAF50 !important;}
+        .page-number { position: absolute; top: 5px; right: 5px; background: #000a; color: white; padding: 2px 6px; border-radius: 10px; font-size: 12px;}
+        .thumbnail-controls { position: absolute; bottom: 0; left: 0; right: 0; background: #000a; display: flex; justify-content: space-around; padding: 5px;}
+        .thumbnail-controls button { background: none; border: none; color: white; cursor: pointer; font-size: 12px;}
+        .thumbnail-controls button:hover { color: #4CAF50;}
+        .action-buttons { margin-top: 20px; text-align: center; }
+        .action-buttons button { padding: 10px 20px; margin: 0 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;}
+        .action-buttons button:hover { background: #45a049;}
+        .action-buttons button:disabled { background: #cccccc; cursor: not-allowed;}
+        .file-info { margin: 10px 0; text-align: center; font-style: italic; color: #666;}
+        .selected-file-info { margin-top: 20px; padding: 10px; text-align: center; background: #eee4; border-radius: 5px; display: none;}
+        .compression-options { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+        .compression-row { display: flex; align-items: center; gap: 10px; }
+        #compressionSlider { width: 200px;}
+        .slider-value { min-width: 60px; color: #4CAF50; font-weight: bold;}
+        .predicted-size { font-size: 15px; color: #666; margin-left: 18px;}
+        .preset-labels { display: flex; justify-content: space-between; margin: 0 4px; }
+        .preset-labels span { font-size: 13px; }
+    </style>
+
+
+<div class="container">
+    <div class="left-panel">
+        <h3 style="margin-top: 0;">PDF Files</h3>
+        <div class="file-input">
+            <input type="file" id="pdfInput" accept=".pdf" multiple="">
+            <p class="file-info">Select one or more PDF files to organize</p>
+        </div>
+        <ul id="fileList" class="file-list"></ul>
+    </div>
+    <div class="right-panel">
+        <h1 style="margin-top: 0;">PDF Page Organizer</h1>
+        <div id="selectedFileInfo" class="selected-file-info" style="display: none;">
+            Showing pages from: <span id="selectedFileName"></span>
+        </div>
+        <div class="compression-options">
+            <div class="compression-row">
+                <label for="compressionSlider" style="font-weight:bold;">Compression</label>
+                <input type="range" id="compressionSlider" min="1" max="4" value="3">
+                <span class="slider-value" id="compressionLabel">Best Quality (Original Size)</span>
+                <span class="predicted-size">Predicted: <span id="predictedSize">0 MB</span></span>
+            </div>
+            <div class="preset-labels">
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
+                <span>Best</span>
+            </div>
+        </div>
+        <div class="thumbnail-container" id="thumbnailContainer"></div>
+        <div class="action-buttons">
+            <button id="mergeBtn" disabled="">Merge &amp; Download</button>
+            <button id="resetBtn">Reset</button>
+            <button id="deselectBtn" style="display: none;">Deselect All</button>
+        </div>
+    </div>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+let pdfPages = [], currentPageNumbers=[], fileColors = {}, selectedFile=null;
+const compressionSlider = document.getElementById('compressionSlider');
+const compressionLabel = document.getElementById('compressionLabel');
+const predictedSizeSpan = document.getElementById('predictedSize');
+
+// Quality mapping: 1 = 0.4, 2 = 0.6, 3 = 0.8, 4 = 1.0 (original)
+function getQualityBySlider(val) { return [0.4, 0.6, 0.8, 1.0][val-1]; }
+function getCompressionName(val) { return ['Low', 'Medium', 'High', 'Best'][val-1] + (val==4 ? " Quality (Original Size)" : " Quality"); }
+compressionSlider.addEventListener('input', function() {
+    compressionLabel.textContent = getCompressionName(parseInt(this.value));
+    predictSize();
+});
+function getColorForFile(fileName) {
+    if (!fileColors[fileName]) {
+        let hash = 0;
+        for (let i = 0; i < fileName.length; i++) {
+            hash = fileName.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const hue = Math.abs(hash) % 360;
+        const saturation = 70 + (Math.abs(hash) % 30) / 100;
+        const lightness = 50 + (Math.abs(hash) % 20) / 100;
+        fileColors[fileName] = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+    return fileColors[fileName];
+}
+function getBorderColor(color) {
+    if (typeof color === 'string' && color.startsWith('hsl(')) {
+        const parts = color.match(/hsl\((\d+),\s*([\d.]+)%,\s*([\d.]+)%\)/);
+        if (parts) {
+            const hue = parseInt(parts[1]);
+            const sat = parseFloat(parts[2]);
+            const light = parseFloat(parts[3]) - 20;
+            return `hsl(${hue}, ${sat}%, ${light}%)`;
+        }
+    }
+    return color;
+}
+function updateFileList(filesData) {
+    const fileList = document.getElementById('fileList');
+    fileList.innerHTML = '';
+    const fileMap = {};
+    filesData.forEach(page => {
+        if (!fileMap[page.originalFile]) fileMap[page.originalFile] = 0;
+        fileMap[page.originalFile]++;
+    });
+    Object.keys(fileMap).forEach(fileName => {
+        const count = fileMap[fileName];
+        const color = getColorForFile(fileName);
+        const li = document.createElement('li');
+        li.className = 'file-list-item';
+        li.style.backgroundColor = color;
+        li.dataset.fileName = fileName;
+        li.innerHTML = `<span>${fileName}</span><span class="page-count">${count} page${count > 1 ? 's' : ''}</span>`;
+        li.addEventListener('click', function() {
+            selectedFile = fileName;
+            document.getElementById('selectedFileName').textContent = fileName;
+            document.getElementById('selectedFileInfo').style.display = 'block';
+            document.getElementById('deselectBtn').style.display = 'inline-block';
+            const thumbnails = document.querySelectorAll('.thumbnail');
+            thumbnails.forEach(thumb => {
+                if (thumb.dataset.fileName === selectedFile) {
+                    thumb.classList.add('highlighted');
+                    thumb.style.borderColor = getBorderColor(color);
+                } else {
+                    thumb.classList.remove('highlighted');
+                    thumb.style.borderColor = 'transparent';
+                }
+            });
+            document.querySelectorAll('.file-list-item').forEach(item => {
+                item.style.border = 'none';
+                item.style.opacity = '1';
+            });
+            li.style.border = `2px solid ${getBorderColor(color)}`;
+            li.style.opacity = '0.8';
+        });
+        fileList.appendChild(li);
+    });
+}
+new Sortable(document.getElementById('thumbnailContainer'), {
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    onEnd: function() { updatePageNumbers(); }
+});
+
+function renderThumbnails() {
+    const thumbnailContainer = document.getElementById('thumbnailContainer');
+    thumbnailContainer.innerHTML = '';
+    pdfPages.forEach((pageData, index) => {
+        createThumbnailElement(pageData, index, thumbnailContainer);
+    });
+    updateFileList(pdfPages);
+    if (selectedFile) {
+        const thumbnails = document.querySelectorAll('.thumbnail');
+        const color = getColorForFile(selectedFile);
+        thumbnails.forEach(thumb => {
+            thumb.style.borderColor = thumb.dataset.fileName === selectedFile ? getBorderColor(color) : 'transparent';
+            thumb.classList.toggle('highlighted', thumb.dataset.fileName === selectedFile);
+        });
+    }
+    predictSize();
+}
+function createThumbnailElement(thumbnailData, index, container) {
+    const thumbnailDiv = document.createElement('div');
+    thumbnailDiv.className = 'thumbnail';
+    thumbnailDiv.dataset.index = index;
+    thumbnailDiv.dataset.fileName = thumbnailData.originalFile;
+    const img = document.createElement('img');
+    img.src = thumbnailData.canvas.toDataURL();
+    const color = getColorForFile(thumbnailData.originalFile);
+    thumbnailDiv.style.boxShadow = `0 2px 5px ${color}`;
+    const pageNumber = document.createElement('div');
+    pageNumber.className = 'page-number';
+    pageNumber.textContent = currentPageNumbers[index];
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'thumbnail-controls';
+    const rotateLeftBtn = document.createElement('button');
+    rotateLeftBtn.innerHTML = '↺'; rotateLeftBtn.title = 'Rotate Left';
+    rotateLeftBtn.onclick = (e) => { e.stopPropagation(); rotatePage(index, -90); };
+    const rotateRightBtn = document.createElement('button');
+    rotateRightBtn.innerHTML = '↻'; rotateRightBtn.title = 'Rotate Right';
+    rotateRightBtn.onclick = (e) => { e.stopPropagation(); rotatePage(index, 90); };
+    const removeBtn = document.createElement('button');
+    removeBtn.innerHTML = '✕'; removeBtn.title = 'Remove Page';
+    removeBtn.onclick = (e) => { e.stopPropagation(); removePage(index); };
+    controlsDiv.appendChild(rotateLeftBtn);
+    controlsDiv.appendChild(rotateRightBtn);
+    controlsDiv.appendChild(removeBtn);
+    thumbnailDiv.appendChild(img);
+    thumbnailDiv.appendChild(pageNumber);
+    thumbnailDiv.appendChild(controlsDiv);
+    thumbnailDiv.addEventListener('click', function(e) {
+        if (e.target.tagName === 'BUTTON') return;
+        const fileName = thumbnailData.originalFile;
+        if (selectedFile !== fileName || !selectedFile) {
+            selectedFile = fileName;
+            document.getElementById('selectedFileName').textContent = fileName;
+            document.getElementById('selectedFileInfo').style.display = 'block';
+            document.getElementById('deselectBtn').style.display = 'inline-block';
+            const thumbnails = document.querySelectorAll('.thumbnail');
+            const color = getColorForFile(fileName);
+            thumbnails.forEach(thumb => {
+                thumb.style.borderColor = thumb.dataset.fileName === selectedFile ? getBorderColor(color) : 'transparent';
+                thumb.classList.toggle('highlighted', thumb.dataset.fileName === selectedFile);
+            });
+            document.querySelectorAll('.file-list-item').forEach(item => {
+                item.style.border = 'none'; item.style.opacity = '1';
+            });
+            const fileListItem = document.querySelector(`.file-list-item[data-file-name="${fileName}"]`);
+            if (fileListItem) {
+                fileListItem.style.border = `2px solid ${getBorderColor(color)}`;
+                fileListItem.style.opacity = '0.8';
+            }
+        }
+    });
+    container.appendChild(thumbnailDiv);
+}
+function updatePageNumbers() {
+    const thumbnails = document.getElementById('thumbnailContainer').querySelectorAll('.thumbnail');
+    thumbnails.forEach((thumb, index) => {
+        const pageNumElement = thumb.querySelector('.page-number');
+        if (pageNumElement) {
+            pageNumElement.textContent = index + 1;
+            currentPageNumbers[index] = index + 1;
+        }
+    });
+}
+async function rotatePage(index, degrees) {
+    const pageData = pdfPages[index];
+    pageData.rotation = (pageData.rotation + degrees) % 360;
+    const pdfDoc = await pdfjsLib.getDocument(pageData.pdfDoc).promise;
+    const page = await pdfDoc.getPage(pageData.pageNum);
+    const viewport = page.getViewport({ scale: 0.5, rotation: pageData.rotation });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    await page.render({ canvasContext: context, viewport: viewport }).promise;
+    pageData.canvas = canvas;
+    const thumbnailDiv = document.getElementById('thumbnailContainer').querySelector(`.thumbnail[data-index="${index}"]`);
+    thumbnailDiv.querySelector('img').src = canvas.toDataURL();
+    predictSize();
+}
+function removePage(index) {
+    pdfPages.splice(index, 1);
+    currentPageNumbers.splice(index, 1);
+    renderThumbnails();
+    document.getElementById('mergeBtn').disabled = pdfPages.length === 0;
+    updatePageNumbers();
+    updateFileList(pdfPages);
+    if (pdfPages.every(page => page.originalFile !== selectedFile) && selectedFile) {
+        document.getElementById('selectedFileInfo').style.display = 'none';
+        document.getElementById('deselectBtn').style.display = 'none';
+        selectedFile = null;
+    }
+}
+document.getElementById('pdfInput').addEventListener('change', async function(e) {
+    const files = e.target.files;
+    if (!files.length) return;
+    pdfPages = [];
+    currentPageNumbers = [];
+    fileColors = {};
+    selectedFile = null;
+    document.getElementById('selectedFileInfo').style.display = 'none';
+    document.getElementById('deselectBtn').style.display = 'none';
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const arrayBuffer = await file.arrayBuffer();
+        try {
+            const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 0.5 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                const thumbnailData = {
+                    pdfDoc: arrayBuffer,
+                    pageNum: pageNum,
+                    rotation: 0,
+                    canvas: canvas,
+                    originalFile: file.name,
+                    originalPageNum: pageNum
+                };
+                pdfPages.push(thumbnailData);
+                currentPageNumbers.push(pdfPages.length);
+            }
+        } catch (error) {
+            console.error('Error loading PDF:', error);
+        }
+    }
+    renderThumbnails();
+    document.getElementById('mergeBtn').disabled = pdfPages.length === 0;
+});
+document.getElementById('mergeBtn').addEventListener('click', async function() {
+    if (pdfPages.length === 0) return;
+    this.disabled = true;
+    this.textContent = 'Processing...';
+    try {
+        const { PDFDocument } = PDFLib;
+        const mergedPdf = await PDFDocument.create();
+        const qualityVal = parseInt(compressionSlider.value);
+        if(qualityVal===4) {
+            // Best: try to copy original PDF data, if fails fallback to rasterized mode
+            for (const pageData of pdfPages) {
+                try {
+                    const srcPdf = await PDFDocument.load(pageData.pdfDoc);
+                    const [copied] = await mergedPdf.copyPages(srcPdf, [pageData.pageNum-1]);
+                    if (pageData.rotation) copied.setRotation(pageData.rotation);
+                    mergedPdf.addPage(copied);
+                } catch (e) {
+                    // fallback: rasterize
+                    const imgUrl = pageData.canvas.toDataURL("image/jpeg", 1.0);
+                    const img = await mergedPdf.embedJpg(imgUrl);
+                    const origW = pageData.canvas.width, origH = pageData.canvas.height;
+                    const page = mergedPdf.addPage([origW, origH]);
+                    page.drawImage(img, {x:0,y:0,width:origW,height:origH});
+                }
+            }
+        } else {
+            // Compress: embed JPEG thumbnails as pages with lower quality
+            const quality = getQualityBySlider(qualityVal);
+            for (const pageData of pdfPages) {
+                const imgUrl = pageData.canvas.toDataURL("image/jpeg", quality); // jpeg, quality mapped
+                const img = await mergedPdf.embedJpg(imgUrl);
+                const origW = pageData.canvas.width, origH = pageData.canvas.height;
+                const page = mergedPdf.addPage([origW, origH]);
+                page.drawImage(img, {x:0,y:0,width:origW,height:origH});
+            }
+        }
+        const mergedPdfBytes = await mergedPdf.save();
+        downloadPdf(mergedPdfBytes, 'merged_' + getCompressionName(qualityVal).replace(/[^a-z]+/gi, "_").toLowerCase() +'.pdf');
+    } catch (err) {
+        alert('Error merging PDFs. Please try again.\n\n' + err);
+    } finally {
+        this.disabled = false;
+        this.textContent = 'Merge & Download';
+    }
+});
+document.getElementById('resetBtn').addEventListener('click', function() {
+    pdfPages=[]; currentPageNumbers=[]; fileColors={}; selectedFile=null;
+    document.getElementById('thumbnailContainer').innerHTML='';
+    document.getElementById('pdfInput').value='';
+    document.getElementById('fileList').innerHTML='';
+    document.getElementById('selectedFileInfo').style.display='none';
+    document.getElementById('deselectBtn').style.display = 'none';
+    document.getElementById('mergeBtn').disabled = true;
+    predictSize();
+});
+document.getElementById('deselectBtn').addEventListener('click', function() {
+    document.getElementById('selectedFileInfo').style.display = 'none';
+    this.style.display = 'none';
+    selectedFile = null;
+    document.querySelectorAll('.thumbnail').forEach(thumb=>{
+        thumb.classList.remove('highlighted');
+        thumb.style.borderColor = 'transparent';
+    });
+    document.querySelectorAll('.file-list-item').forEach(item=>{
+        item.style.border = 'none';
+        item.style.opacity = '1';
+    });
+});
+// Live predicted size logic:
+async function predictSize() {
+    if (pdfPages.length === 0) { predictedSizeSpan.textContent = "0 MB"; return; }
+    const qVal = parseInt(compressionSlider.value);
+    if(qVal === 4) {
+        let sum = 0;
+        for(const page of pdfPages) sum += page.pdfDoc.byteLength /1024/1024;
+        predictedSizeSpan.textContent = sum.toFixed(2)+' MB';
+        return;
+    }
+    let q = getQualityBySlider(qVal);
+    let totalBytes = 0;
+    for(const page of pdfPages) {
+        const jpgURL = page.canvas.toDataURL('image/jpeg', q);
+        const l = jpgURL.length - jpgURL.indexOf(',') - 1;
+        totalBytes += Math.floor(l*3/4);
+    }
+    predictedSizeSpan.textContent = (totalBytes/1024/1024).toFixed(2)+' MB';
+}
+window.addEventListener('load', function() {
+    compressionLabel.textContent = getCompressionName(parseInt(compressionSlider.value));
+    predictSize();
+});
+function downloadPdf(pdfBytes, fileName) {
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+
+
+            <script></script>
+        
+    
+</body>

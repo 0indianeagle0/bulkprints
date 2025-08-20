@@ -123,7 +123,6 @@
             color: var(--text-secondary);
         }
 
-        /* Rest of your CSS remains the same */
         .main-content {
             padding: 30px;
         }
@@ -142,6 +141,7 @@
             justify-content: center;
             gap: 20px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         .upload-btn {
@@ -165,6 +165,18 @@
         .upload-note {
             font-size: 0.85rem;
             color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .warning-note {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(255, 82, 82, 0.1);
+            border-radius: var(--border-radius);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            color: var(--danger-color);
+            font-size: 0.85rem;
         }
 
         .action-buttons {
@@ -174,6 +186,7 @@
             margin-top: 30px;
             border-top: 1px solid var(--border-color);
             padding-top: 30px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -269,6 +282,20 @@
             accent-color: var(--primary-color);
         }
 
+        .processing-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(29, 233, 182, 0.8);
+            color: white;
+            font-size: 0.8rem;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+
         .unsupported-text {
             position: absolute;
             bottom: 10px;
@@ -316,6 +343,7 @@
 
         .remove-file-btn { background: var(--danger-color); }
         .print-pdf-btn { background: var(--primary-color); }
+        .print-word-btn { background: var(--primary-color); }
 
         .status-message {
             padding: 15px 20px;
@@ -403,7 +431,6 @@
         </div>
 
         <div class="main-content">
-            <!-- Rest of your HTML content remains the same -->
             <div class="controls-section">
                 <input type="file" id="fileInput" multiple accept="image/*,application/pdf,.doc,.docx" style="display: none;">
                 <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
@@ -412,7 +439,10 @@
                     <label for="fileInput" class="upload-btn">Select Files</label>
                     <label for="folderInput" class="upload-btn">Select Folder</label>
                 </div>
-                <p class="upload-note">Note: Images can be bulk printed. PDFs can be merged into a single document.</p>
+                <p class="upload-note">Note: Images can be bulk printed. PDFs can be merged into a single document. Word documents can be printed and merged as well.</p>
+                <div class="warning-note">
+                    Important: Word documents require conversion and may take longer to process. Complex formatting might not be preserved perfectly.
+                </div>
             </div>
 
             <div id="fileStats" class="file-type-stats"></div>
@@ -429,7 +459,7 @@
 
             <div class="action-buttons">
                 <button class="action-btn print-btn" id="printBtn" disabled>Print All Images</button>
-                <button class="action-btn merge-btn" id="mergePdfBtn" disabled>Merge & Print PDFs</button>
+                <button class="action-btn merge-btn" id="mergePdfBtn" disabled>Merge & Print PDFs & Docs</button>
                 <button class="action-btn reset-btn" id="resetBtn" disabled>Reset All</button>
             </div>
         </div>
@@ -437,8 +467,12 @@
 
     <!-- PDF-LIB Script -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- Mammoth.js for Word processing -->
+    <script src="https://unpkg.com/mammoth@1.5.1/mammoth.browser.min.js"></script>
+    <!-- html2pdf for Word to PDF conversion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <script>
-        // Your JavaScript code remains exactly the same
         const fileInput = document.getElementById('fileInput');
         const folderInput = document.getElementById('folderInput');
         const previewArea = document.getElementById('previewArea');
@@ -456,7 +490,7 @@
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
         folderInput.addEventListener('change', (e) => handleFiles(e.target.files));
         printBtn.addEventListener('click', handleImagePrint);
-        mergePdfBtn.addEventListener('click', mergePdfFiles);
+        mergePdfBtn.addEventListener('click', mergeDocuments);
         resetBtn.addEventListener('click', resetAll);
 
         function handleFiles(files) {
@@ -494,6 +528,19 @@
                 checkbox.onchange = updateUI;
                 previewContainer.appendChild(checkbox);
                 actionsDiv.innerHTML += `<button class="card-action-btn print-pdf-btn" onclick="handlePdfPrint('${file.name}')">Print</button>`;
+            } else if (fileType === 'word') {
+                previewContainer.innerHTML = getIconSVG('word');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'file-checkbox word-checkbox';
+                checkbox.checked = true;
+                checkbox.onchange = updateUI;
+                previewContainer.appendChild(checkbox);
+                actionsDiv.innerHTML += `<button class="card-action-btn print-word-btn" onclick="handleWordPrint('${file.name}')">Print</button>`;
+                const processingLabel = document.createElement('div');
+                processingLabel.className = 'processing-label';
+                processingLabel.id = `processing-label-${file.name}`;
+                previewContainer.appendChild(processingLabel);
             } else {
                 previewContainer.innerHTML = getIconSVG('doc');
                 previewContainer.innerHTML += `<div class="unsupported-text">Cannot merge or print</div>`;
@@ -520,21 +567,23 @@
         }
 
         function updateStats() {
-            const stats = { images: 0, pdfs: 0, docs: 0 };
+            const stats = { images: 0, pdfs: 0, words: 0, docs: 0 };
             selectedFiles.forEach(file => {
                 const type = getFileType(file);
                 if (type === 'image') stats.images++;
                 if (type === 'pdf') stats.pdfs++;
+                if (type === 'word') stats.words++;
                 if (type === 'doc') stats.docs++;
             });
 
             fileStats.innerHTML = '';
             if (stats.images > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.images} Image(s)</span></div>`;
             if (stats.pdfs > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.pdfs} PDF(s)</span></div>`;
-            if (stats.docs > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.docs} DOC(s)</span></div>`;
+            if (stats.words > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.words} Word Document(s)</span></div>`;
+            if (stats.docs > 0) fileStats.innerHTML += `<div class="file-stat"><span>${stats.docs} Unsupported</span></div>`;
         }
 
-        function handleImagePrint() {
+        async function handleImagePrint() {
             const imageFiles = Array.from(selectedFiles.values()).filter(file => getFileType(file) === 'image');
             if (imageFiles.length === 0) return;
 
@@ -581,43 +630,168 @@
             };
         }
 
-        async function mergePdfFiles() {
+        async function handleWordPrint(filename) {
+            const file = selectedFiles.get(filename);
+            if (!file) return;
+
+            try {
+                showProgress(0, 'Converting Word document...');
+                const processingLabel = document.getElementById(`processing-label-${filename}`);
+                processingLabel.style.display = 'block';
+                processingLabel.textContent = 'Converting...';
+
+                // Convert to HTML
+                const arrayBuffer = await file.arrayBuffer();
+                const { value: htmlString } = await mammoth.convertToHtml({ arrayBuffer });
+
+                // Create a new window with the HTML
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                    <title>${file.name}</title>
+                    <style>
+                    body { font-family: Arial, sans-serif; margin:20px; }
+                    @media print {
+                    body { margin:0; }
+                    }
+                    </style>
+                    </head>
+                    <body>
+                    ${htmlString}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+
+                // Trigger print after a short delay
+                setTimeout(() => {
+                    printWindow.print();
+                    showProgress(100, 'Document ready for printing');
+                    setTimeout(() => {
+                        hideProgress();
+                        processingLabel.style.display = 'none';
+                    }, 2000);
+                }, 1000);
+            } catch (error) {
+                showStatus('error', 'Failed to convert Word document: ' + error.message);
+                hideProgress();
+                const processingLabel = document.getElementById(`processing-label-${filename}`);
+                processingLabel.style.display = 'none';
+            }
+        }
+
+        async function mergeDocuments() {
             const pdfsToMerge = Array.from(document.querySelectorAll('.pdf-checkbox:checked'))
                 .map(cb => selectedFiles.get(cb.closest('.file-card').dataset.filename))
                 .filter(Boolean);
 
-            if (pdfsToMerge.length < 2) {
-                if (pdfsToMerge.length === 1) handlePdfPrint(pdfsToMerge[0].name);
+            const wordsToMerge = Array.from(document.querySelectorAll('.word-checkbox:checked'))
+                .map(cb => selectedFiles.get(cb.closest('.file-card').dataset.filename))
+                .filter(Boolean);
+
+            if (pdfsToMerge.length === 0 && wordsToMerge.length === 0) {
+                showStatus('error', 'No files selected for merging!');
                 return;
             }
 
-            showProgress(0, 'Merging PDFs...');
-            const { PDFDocument } = PDFLib;
-            const mergedPdf = await PDFDocument.create();
-
-            for (let i = 0; i < pdfsToMerge.length; i++) {
-                const pdfBytes = await pdfsToMerge[i].arrayBuffer();
-                const pdfDoc = await PDFDocument.load(pdfBytes);
-                const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-                copiedPages.forEach(page => mergedPdf.addPage(page));
-                showProgress(((i + 1) / pdfsToMerge.length) * 100);
+            if (pdfsToMerge.length === 1 && wordsToMerge.length === 0) {
+                handlePdfPrint(pdfsToMerge[0].name);
+                return;
             }
 
-            const mergedPdfBytes = await mergedPdf.save();
-            const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const printWindow = window.open(url, '_blank');
-
-            if (printWindow) {
-                showStatus('success', 'PDFs merged! Opening print dialog...');
-            } else {
-                showStatus('error', 'Popup blocked. Download the merged PDF instead.');
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'merged.pdf';
-                a.click();
+            if (pdfsToMerge.length === 0 && wordsToMerge.length === 1) {
+                handleWordPrint(wordsToMerge[0].name);
+                return;
             }
-            hideProgress();
+
+            try {
+                showProgress(0, 'Converting Word files (if any)...');
+
+                // Convert all Word files to PDF
+                const convertedPdfs = [];
+                for (let i = 0; i < wordsToMerge.length; i++) {
+                    const wordFile = wordsToMerge[i];
+                    showProgress((i / wordsToMerge.length) * 50, `Converting ${wordFile.name}...`);
+                    const pdfBlob = await wordToPdf(wordFile);
+                    convertedPdfs.push({
+                        name: wordFile.name,
+                        blob: pdfBlob
+                    });
+                }
+
+                showProgress(50, 'Merging PDFs...');
+
+                // Now we have both PDFs and converted PDFs from Word
+                const allPdfs = [...pdfsToMerge, ...convertedPdfs];
+
+                if (allPdfs.length === 0) {
+                    showStatus('error', 'No valid files to merge!');
+                    return;
+                }
+
+                const { PDFDocument } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
+
+                for (let i = 0; i < allPdfs.length; i++) {
+                    let fileOrBlob = allPdfs[i];
+                    let bytes;
+
+                    if (fileOrBlob instanceof Blob) {
+                        bytes = await fileOrBlob.arrayBuffer();
+                    } else {
+                        bytes = await fileOrBlob.arrayBuffer();
+                    }
+
+                    const pdfDoc = await PDFDocument.load(bytes);
+                    const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                    copiedPages.forEach(page => mergedPdf.addPage(page));
+                    showProgress(50 + ((i + 1) / allPdfs.length) * 50);
+                }
+
+                const mergedPdfBytes = await mergedPdf.save();
+                const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const printWindow = window.open(url, '_blank');
+
+                if (printWindow) {
+                    showStatus('success', 'Documents merged! Opening print dialog...');
+                } else {
+                    showStatus('error', 'Popup blocked. Download the merged PDF instead.');
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'merged.pdf';
+                    a.click();
+                }
+                hideProgress();
+            } catch (error) {
+                showStatus('error', 'Error during merge: ' + error.message);
+                hideProgress();
+            }
+        }
+
+        async function wordToPdf(wordFile) {
+            const arrayBuffer = await wordFile.arrayBuffer();
+            const { value: htmlString } = await mammoth.convertToHtml({ arrayBuffer });
+
+            // Create a temporary div to hold the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlString;
+            tempDiv.style.width = '210mm'; // A4 width
+            tempDiv.style.padding = '10mm';
+            tempDiv.style.backgroundColor = 'white';
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px'; // Hide off-screen
+            document.body.appendChild(tempDiv);
+
+            // Convert to PDF using html2pdf
+            const pdfBlob = await html2pdf().from(tempDiv).toPdf().output('blob');
+
+            // Remove the temporary div
+            document.body.removeChild(tempDiv);
+
+            return pdfBlob;
         }
 
         function removeFile(filename) {
@@ -639,9 +813,10 @@
             const hasFiles = selectedFiles.size > 0;
             const hasImages = Array.from(selectedFiles.values()).some(file => getFileType(file) === 'image');
             const hasPdfs = document.querySelectorAll('.pdf-checkbox:checked').length > 0;
+            const hasWords = document.querySelectorAll('.word-checkbox:checked').length > 0;
 
             printBtn.disabled = !hasImages;
-            mergePdfBtn.disabled = !hasPdfs;
+            mergePdfBtn.disabled = !(hasPdfs || hasWords);
             resetBtn.disabled = !hasFiles;
         }
 
@@ -665,7 +840,7 @@
         function getFileType(file) {
             if (file.type.startsWith('image/')) return 'image';
             if (file.type === 'application/pdf') return 'pdf';
-            if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) return 'doc';
+            if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) return 'word';
             return 'unsupported';
         }
 
@@ -679,20 +854,21 @@
         function getIconSVG(type) {
             const iconPaths = {
                 pdf: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM9.5 18H8v-2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5zm-2-3H6v-2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V15zm4.5-1a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM16 12h-2.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5H16v2.5zm-3-4a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5z',
-                doc: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'
+                doc: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z',
+                word: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM7 18H6v-2h1v2zm0-4H6v-2h1v2zm0-4H6v-2h1v2zm0-4H6v-2h1v2zm5 12h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2v-2h2v2zm4 12h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2v-2h2v2z'
             };
             return `<svg class="file-icon" viewBox="0 0 24 24" fill="currentColor"><path d="${iconPaths[type] || ''}"/></svg>`;
         }
     </script>
 
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-7GDLZ26RST"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7GDLZ26RST"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-7GDLZ26RST');
-</script>
+      gtag('config', 'G-7GDLZ26RST');
+    </script>
 </body>
 </html>
